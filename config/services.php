@@ -42,4 +42,10 @@ return [
         'shared_secret' => env('WASENDER_SHARED_SECRET'),
     ],
 
+    // Added for Paybill's cloud sync (/api/state) — see
+    // app/Http/Middleware/EnsurePaybillAccessToken.php
+    'paybill' => [
+        'access_token' => env('APP_ACCESS_TOKEN'),
+    ],
+
 ];
