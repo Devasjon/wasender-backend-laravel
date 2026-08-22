@@ -105,7 +105,7 @@ git push -u origin main
 6. **Deployment** tab → edit the deploy script so the SQLite file is created
    the first time, and migrations run on every deploy:
    ```
-   cd {{ $FORGE_SITE_PATH }}
+   cd $FORGE_SITE_PATH
    git pull origin $FORGE_SITE_BRANCH
    $FORGE_COMPOSER install --no-dev --no-interaction --prefer-dist --optimize-autoloader
    touch database/database.sqlite

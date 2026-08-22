@@ -48,4 +48,11 @@ return [
         'access_token' => env('APP_ACCESS_TOKEN'),
     ],
 
+    // Added for Paybill's receipt/invoice scanning (/api/scan-receipt) — see
+    // app/Http/Controllers/Api/ScanReceiptController.php
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-5'),
+    ],
+
 ];
