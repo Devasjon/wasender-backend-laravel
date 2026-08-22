@@ -66,6 +66,29 @@ class ScanReceiptTest extends TestCase
         });
     }
 
+    public function test_it_accepts_a_pdf_invoice_and_sends_it_as_a_document_block(): void
+    {
+        $this->fakeAnthropicResponse([
+            'merchant' => 'Astro Malaysia',
+            'amount' => 99.90,
+            'date' => '2026-09-01',
+            'category' => 'subscription',
+            'isPaid' => false,
+        ]);
+
+        $file = UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf');
+
+        $this->withHeader('Authorization', 'Bearer test-token')
+            ->postJson('/api/scan-receipt', ['image' => $file])
+            ->assertOk()
+            ->assertJsonPath('data.merchant', 'Astro Malaysia');
+
+        Http::assertSent(function ($request) {
+            return $request['messages'][0]['content'][0]['type'] === 'document'
+                && $request['messages'][0]['content'][0]['source']['media_type'] === 'application/pdf';
+        });
+    }
+
     public function test_it_falls_back_to_other_for_an_unrecognized_category(): void
     {
         $this->fakeAnthropicResponse([

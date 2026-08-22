@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Reads a photo of a receipt or invoice (Paybill's Settings → Scan Receipt)
+ * Reads a photo or PDF of a receipt or invoice (Paybill's Settings → Scan
+ * Receipt — either snapped with the camera or imported from a file/folder)
  * and extracts the fields needed to prefill a bill: merchant name, amount,
  * date, a best-guess category, and whether it looks already paid (a receipt)
  * or still owing (an invoice). Uses Claude's vision API server-side so the
@@ -30,11 +31,11 @@ class ScanReceiptController extends Controller
     {
         try {
             $validated = $request->validate([
-                'image' => ['required', 'image', 'max:8192'],
+                'image' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,webp,pdf', 'max:8192'],
             ]);
         } catch (ValidationException $e) {
             return response()->json([
-                'error' => "Request must include an 'image' file (max 8MB).",
+                'error' => "Request must include an 'image' file — photo or PDF (max 8MB).",
                 'details' => $e->errors(),
             ], 422);
         }
@@ -52,10 +53,11 @@ class ScanReceiptController extends Controller
         $file = $validated['image'];
         $base64 = base64_encode(file_get_contents($file->getRealPath()));
         $mediaType = $file->getMimeType() ?: 'image/jpeg';
+        $isPdf = $mediaType === 'application/pdf';
         $model = config('services.anthropic.model', 'claude-sonnet-5');
 
         $prompt = <<<'PROMPT'
-            You are reading a photo of a receipt or invoice for a personal bill-tracking app.
+            You are reading a photo or document of a receipt or invoice for a personal bill-tracking app.
             Extract these fields and reply with ONLY a single JSON object — no markdown
             fences, no explanation, just the JSON:
 
@@ -85,7 +87,7 @@ class ScanReceiptController extends Controller
                             'role' => 'user',
                             'content' => [
                                 [
-                                    'type' => 'image',
+                                    'type' => $isPdf ? 'document' : 'image',
                                     'source' => [
                                         'type' => 'base64',
                                         'media_type' => $mediaType,
