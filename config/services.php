@@ -18,8 +18,10 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    // Registration/reset OTP delivery — see app/Services/ResendMailer.php.
     'resend' => [
         'key' => env('RESEND_API_KEY'),
+        'from' => env('RESEND_FROM_EMAIL'),
     ],
 
     'ses' => [
@@ -36,16 +38,10 @@ return [
     ],
 
     // Added for the Paybill WhatsApp bridge — see
-    // app/Http/Controllers/Api/SendWhatsAppController.php
+    // app/Http/Controllers/Api/SendWhatsAppController.php. Gated by
+    // auth:sanctum now (routes/api.php), not a shared secret.
     'wasender' => [
         'key' => env('WASENDER_API_KEY'),
-        'shared_secret' => env('WASENDER_SHARED_SECRET'),
-    ],
-
-    // Added for Paybill's cloud sync (/api/state) — see
-    // app/Http/Middleware/EnsurePaybillAccessToken.php
-    'paybill' => [
-        'access_token' => env('APP_ACCESS_TOKEN'),
     ],
 
     // Added for Paybill's receipt/invoice scanning (/api/scan-receipt) — see

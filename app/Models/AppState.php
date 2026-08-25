@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['owner', 'data'])]
+#[Fillable(['user_id', 'data'])]
 class AppState extends Model
 {
     /**

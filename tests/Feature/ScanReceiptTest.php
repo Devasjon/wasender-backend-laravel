@@ -2,18 +2,28 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ScanReceiptTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        config(['services.paybill.access_token' => 'test-token']);
         config(['services.anthropic.key' => 'test-anthropic-key']);
+    }
+
+    private function authHeader(): array
+    {
+        $token = User::factory()->create()->createToken('test')->plainTextToken;
+
+        return ['Authorization' => 'Bearer '.$token];
     }
 
     private function fakeAnthropicResponse(array $data): void
@@ -46,7 +56,7 @@ class ScanReceiptTest extends TestCase
 
         $file = UploadedFile::fake()->image('receipt.jpg');
 
-        $response = $this->withHeader('Authorization', 'Bearer test-token')
+        $response = $this->withHeaders($this->authHeader())
             ->postJson('/api/scan-receipt', ['image' => $file]);
 
         $response->assertOk()->assertJson([
@@ -78,7 +88,7 @@ class ScanReceiptTest extends TestCase
 
         $file = UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf');
 
-        $this->withHeader('Authorization', 'Bearer test-token')
+        $this->withHeaders($this->authHeader())
             ->postJson('/api/scan-receipt', ['image' => $file])
             ->assertOk()
             ->assertJsonPath('data.merchant', 'Astro Malaysia');
@@ -101,7 +111,7 @@ class ScanReceiptTest extends TestCase
 
         $file = UploadedFile::fake()->image('receipt.jpg');
 
-        $this->withHeader('Authorization', 'Bearer test-token')
+        $this->withHeaders($this->authHeader())
             ->postJson('/api/scan-receipt', ['image' => $file])
             ->assertOk()
             ->assertJsonPath('data.category', 'other');
@@ -113,14 +123,14 @@ class ScanReceiptTest extends TestCase
 
         $file = UploadedFile::fake()->image('receipt.jpg');
 
-        $this->withHeader('Authorization', 'Bearer test-token')
+        $this->withHeaders($this->authHeader())
             ->postJson('/api/scan-receipt', ['image' => $file])
             ->assertStatus(422);
     }
 
     public function test_it_rejects_a_missing_image(): void
     {
-        $this->withHeader('Authorization', 'Bearer test-token')
+        $this->withHeaders($this->authHeader())
             ->postJson('/api/scan-receipt', [])
             ->assertStatus(422);
     }
@@ -131,7 +141,7 @@ class ScanReceiptTest extends TestCase
 
         $file = UploadedFile::fake()->image('receipt.jpg');
 
-        $this->withHeader('Authorization', 'Bearer test-token')
+        $this->withHeaders($this->authHeader())
             ->postJson('/api/scan-receipt', ['image' => $file])
             ->assertStatus(500);
     }

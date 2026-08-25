@@ -18,8 +18,8 @@ use Illuminate\Validation\ValidationException;
  * Anthropic API key never reaches the browser — same pattern as
  * SendWhatsAppController keeping WASENDER_API_KEY secret.
  *
- * Protected by the same 'paybill.token' middleware as /api/state (see
- * EnsurePaybillAccessToken) — no separate secret to configure.
+ * Protected by the same auth:sanctum middleware as /api/state — no
+ * separate secret to configure.
  */
 class ScanReceiptController extends Controller
 {

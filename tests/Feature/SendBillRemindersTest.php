@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AppState;
 use App\Models\ReminderLog;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -22,10 +23,12 @@ class SendBillRemindersTest extends TestCase
         ]);
     }
 
-    private function seedState(array $bills, array $whatsappOverrides = []): void
+    private function seedState(array $bills, array $whatsappOverrides = []): User
     {
+        $user = User::factory()->create();
+
         AppState::create([
-            'owner' => 'default',
+            'user_id' => $user->id,
             'data' => [
                 'bills' => $bills,
                 'lang' => 'en',
@@ -36,6 +39,8 @@ class SendBillRemindersTest extends TestCase
                 ], $whatsappOverrides),
             ],
         ]);
+
+        return $user;
     }
 
     public function test_it_does_nothing_when_no_state_has_synced_yet(): void
@@ -60,7 +65,7 @@ class SendBillRemindersTest extends TestCase
 
     public function test_it_sends_a_due_soon_reminder_for_a_bill_due_within_three_days(): void
     {
-        $this->seedState([[
+        $user = $this->seedState([[
             'id' => 'b1', 'name' => 'Bil Elektrik', 'amount' => 168.20,
             'dueDate' => now()->addDays(2)->toDateString(), 'paid' => false,
         ]]);
@@ -75,6 +80,7 @@ class SendBillRemindersTest extends TestCase
         });
 
         $this->assertDatabaseHas('reminder_logs', [
+            'user_id' => $user->id,
             'bill_id' => 'b1',
             'event' => 'billDueSoon',
             'status' => 'sent',
@@ -83,7 +89,7 @@ class SendBillRemindersTest extends TestCase
 
     public function test_it_sends_an_overdue_reminder_for_a_past_due_bill(): void
     {
-        $this->seedState([[
+        $user = $this->seedState([[
             'id' => 'b2', 'name' => 'Kad Kredit', 'amount' => 500,
             'dueDate' => now()->subDays(3)->toDateString(), 'paid' => false,
         ]]);
@@ -91,7 +97,7 @@ class SendBillRemindersTest extends TestCase
         $this->artisan('bills:send-reminders')->assertExitCode(0);
 
         Http::assertSent(fn ($request) => str_contains($request['text'], 'Overdue'));
-        $this->assertDatabaseHas('reminder_logs', ['bill_id' => 'b2', 'event' => 'billOverdue']);
+        $this->assertDatabaseHas('reminder_logs', ['user_id' => $user->id, 'bill_id' => 'b2', 'event' => 'billOverdue']);
     }
 
     public function test_it_skips_a_bill_that_is_already_paid(): void
@@ -143,5 +149,23 @@ class SendBillRemindersTest extends TestCase
         $this->artisan('bills:send-reminders')->assertExitCode(0);
 
         Http::assertSent(fn ($request) => $request['to'] === '+60199998888');
+    }
+
+    public function test_it_checks_every_users_state_independently(): void
+    {
+        $userA = $this->seedState([[
+            'id' => 'same-id', 'name' => 'User A Bill', 'amount' => 10,
+            'dueDate' => now()->toDateString(), 'paid' => false,
+        ]]);
+        $userB = $this->seedState([[
+            'id' => 'same-id', 'name' => 'User B Bill', 'amount' => 20,
+            'dueDate' => now()->toDateString(), 'paid' => false,
+        ]]);
+
+        $this->artisan('bills:send-reminders')->assertExitCode(0);
+
+        Http::assertSentCount(2);
+        $this->assertDatabaseHas('reminder_logs', ['user_id' => $userA->id, 'bill_id' => 'same-id']);
+        $this->assertDatabaseHas('reminder_logs', ['user_id' => $userB->id, 'bill_id' => 'same-id']);
     }
 }

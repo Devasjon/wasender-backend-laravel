@@ -13,15 +13,14 @@ use Illuminate\Http\Request;
  * feature (src/lib/storage.ts, src/types.ts AppData), just fetchable/savable
  * from any device instead of living only in one browser's memory.
  *
- * Single-user app: everything is stored under owner = "default". Protected
- * by EnsurePaybillAccessToken (a shared bearer token), registered on the
- * 'paybill.token' middleware alias in bootstrap/app.php.
+ * One row per user, keyed by user_id. Protected by auth:sanctum — see
+ * routes/api.php.
  */
 class AppStateController extends Controller
 {
-    public function show(): JsonResponse
+    public function show(Request $request): JsonResponse
     {
-        $state = AppState::where('owner', 'default')->first();
+        $state = AppState::where('user_id', $request->user()->id)->first();
 
         if (! $state) {
             // Nothing synced yet — frontend falls back to its own sample
@@ -42,7 +41,7 @@ class AppStateController extends Controller
         ]);
 
         $state = AppState::updateOrCreate(
-            ['owner' => 'default'],
+            ['user_id' => $request->user()->id],
             ['data' => $validated['data']]
         );
 

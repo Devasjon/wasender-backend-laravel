@@ -2,11 +2,28 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class SendWhatsAppTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private function authHeader(): array
+    {
+        $token = User::factory()->create()->createToken('test')->plainTextToken;
+
+        return ['Authorization' => 'Bearer '.$token];
+    }
+
+    public function test_it_rejects_requests_without_a_token(): void
+    {
+        $this->postJson('/api/send-whatsapp', ['to' => '+60123456789', 'text' => 'Ujian'])
+            ->assertStatus(401);
+    }
+
     public function test_it_forwards_a_message_to_wasenderapi(): void
     {
         config(['services.wasender.key' => 'test-session-api-key']);
@@ -18,7 +35,7 @@ class SendWhatsAppTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson('/api/send-whatsapp', [
+        $response = $this->withHeaders($this->authHeader())->postJson('/api/send-whatsapp', [
             'to' => '+60123456789',
             'text' => 'Ujian',
         ]);
@@ -35,7 +52,8 @@ class SendWhatsAppTest extends TestCase
 
     public function test_it_rejects_missing_fields(): void
     {
-        $response = $this->postJson('/api/send-whatsapp', ['to' => '+60123456789']);
+        $response = $this->withHeaders($this->authHeader())
+            ->postJson('/api/send-whatsapp', ['to' => '+60123456789']);
 
         $response->assertStatus(422);
     }
@@ -44,23 +62,11 @@ class SendWhatsAppTest extends TestCase
     {
         config(['services.wasender.key' => null]);
 
-        $response = $this->postJson('/api/send-whatsapp', [
+        $response = $this->withHeaders($this->authHeader())->postJson('/api/send-whatsapp', [
             'to' => '+60123456789',
             'text' => 'Ujian',
         ]);
 
         $response->assertStatus(500);
-    }
-
-    public function test_it_rejects_requests_with_a_wrong_shared_secret_when_one_is_configured(): void
-    {
-        config(['services.wasender.shared_secret' => 'correct-secret']);
-
-        $response = $this->postJson('/api/send-whatsapp?key=wrong-secret', [
-            'to' => '+60123456789',
-            'text' => 'Ujian',
-        ]);
-
-        $response->assertStatus(401);
     }
 }
