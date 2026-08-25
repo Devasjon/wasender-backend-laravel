@@ -166,6 +166,32 @@ curl "https://your-domain.com/api/state" \
    with the same Sync URL and token configured — the same bills and debts
    should now show up there too.
 
+## 8. Automatic due/overdue reminders (optional)
+
+Once Cloud Sync (step 7.3) is set up, this backend can also send WhatsApp
+reminders on its own — once a day, for any unpaid bill that's due within 3
+days or already overdue — without Paybill needing to be open anywhere. It
+works off the same synced state `/api/state` stores, so it only has
+anything to check once you've synced at least once.
+
+1. On the Forge site → **Scheduler** tab → toggle it **on**. This makes
+   Forge run `php artisan schedule:run` every minute in the background (the
+   reminder command itself still only actually sends anything once a day —
+   see `routes/console.php` for the exact time, default 09:00 server time).
+2. That's it — no extra `.env` values needed, it reuses `WASENDER_API_KEY`
+   and reads `whatsapp.enabled` / `whatsapp.defaultNumber` from whatever's
+   currently synced. If a bill gets marked paid (or WhatsApp notifications
+   get turned off) on any device, the next scheduled run picks that up
+   automatically and stops reminding for it.
+3. To test without waiting for the schedule, SSH in (or use Forge's
+   **Commands** tab) and run it directly:
+   ```
+   php artisan bills:send-reminders
+   ```
+   It prints what it sent/skipped and why. Each bill only gets one
+   "due soon" and one "overdue" reminder per calendar day — check the
+   `reminder_logs` table if you need to see exactly what already went out.
+
 ## Securing the endpoints
 
 Without `WASENDER_SHARED_SECRET` set, anyone who discovers the WhatsApp

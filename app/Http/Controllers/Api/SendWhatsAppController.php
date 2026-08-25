@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\WasenderMessenger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -20,7 +19,7 @@ use Illuminate\Validation\ValidationException;
  */
 class SendWhatsAppController extends Controller
 {
-    public function send(Request $request): JsonResponse
+    public function send(Request $request, WasenderMessenger $messenger): JsonResponse
     {
         // Optional shared-secret check. If WASENDER_SHARED_SECRET is set in
         // .env, require it as a ?key=... query parameter on the URL Paybill
@@ -46,39 +45,19 @@ class SendWhatsAppController extends Controller
             ], 422);
         }
 
-        $apiKey = config('services.wasender.key');
+        $result = $messenger->send($validated['to'], $validated['text']);
 
-        if (! $apiKey) {
-            Log::error('WASENDER_API_KEY is not configured.');
+        if (! $result['ok']) {
+            $isConfigError = $result['status'] === 500;
 
-            return response()->json([
-                'error' => 'Server misconfigured: WASENDER_API_KEY is not set in .env.',
-            ], 500);
+            return response()->json(
+                $isConfigError
+                    ? ['error' => 'Server misconfigured: '.$result['body']]
+                    : ['error' => 'WasenderAPI error', 'detail' => $result['body']],
+                $result['status']
+            );
         }
 
-        $response = Http::withToken($apiKey)
-            ->acceptJson()
-            ->timeout(15)
-            ->post('https://www.wasenderapi.com/api/send-message', [
-                'to' => $validated['to'],
-                'text' => $validated['text'],
-            ]);
-
-        if ($response->failed()) {
-            Log::warning('WasenderAPI send failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-
-            return response()->json([
-                'error' => 'WasenderAPI error',
-                'detail' => $response->json() ?? $response->body(),
-            ], $response->status() ?: 502);
-        }
-
-        return response()->json([
-            'ok' => true,
-            'wasender' => $response->json(),
-        ]);
+        return response()->json(['ok' => true, 'wasender' => $result['body']]);
     }
 }
